@@ -25,10 +25,12 @@ jobs:
           DIGEST=$(docker buildx imagetools inspect ghcr.io/ggml-org/llama.cpp:server-cuda --format '{{.Manifest.Digest}}')
           echo "Latest digest: $DIGEST"
           echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
-          if grep -q "$DIGEST" Dockerfile; then
+          if grep -q "$DIGEST" Dockerfile && [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
             echo "Dockerfile already pinned to this digest, nothing to do."
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
+            # Manual runs always release, so template changes can be
+            # published to RunPod Hub without waiting for a llama.cpp bump.
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
@@ -49,10 +51,8 @@ jobs:
           if ! echo "$CREATED" | grep -Eq '^[0-9]{4}-'; then
             CREATED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
           fi
-          TITLE="$TAG (${CREATED%T*})"
-          echo "Release tag: $TAG, title: $TITLE, built: $CREATED"
+          echo "Release tag: $TAG, built: $CREATED"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "title=$TITLE" >> "$GITHUB_OUTPUT"
           echo "created=$CREATED" >> "$GITHUB_OUTPUT"
 
       - name: Pin Dockerfile, commit and release
@@ -61,15 +61,23 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="${{ steps.version.outputs.tag }}"
-          if gh release view "$TAG" > /dev/null 2>&1; then
-            echo "Release $TAG already exists, nothing to do."
-            exit 0
-          fi
+          # RunPod Hub only picks up new releases, never moved or reused
+          # tags - so if this tag exists (e.g. a template change without a
+          # llama.cpp bump), publish under an incremented suffix instead.
+          BASE_TAG="$TAG"
+          N=2
+          while gh release view "$TAG" > /dev/null 2>&1; do
+            TAG="${BASE_TAG}-${N}"
+            N=$((N+1))
+          done
           sed -i -E "s|^FROM ghcr\.io/ggml-org/llama\.cpp:server-cuda.*$|FROM ghcr.io/ggml-org/llama.cpp:server-cuda@${{ steps.resolve.outputs.digest }}|" Dockerfile
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add Dockerfile
-          git commit -m "Pin llama.cpp base image to $TAG"
-          git push origin HEAD:master
-          gh release create "$TAG" --title "${{ steps.version.outputs.title }}" \
-            --notes "llama.cpp $TAG, built ${{ steps.version.outputs.created }} (base image ghcr.io/ggml-org/llama.cpp:server-cuda@${{ steps.resolve.outputs.digest }})"
+          if ! git diff --quiet Dockerfile; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add Dockerfile
+            git commit -m "Pin llama.cpp base image to $TAG"
+            git push origin HEAD:master
+          fi
+          CREATED="${{ steps.version.outputs.created }}"
+          gh release create "$TAG" --title "$TAG (${CREATED%T*})" \
+            --notes "llama.cpp ${{ steps.version.outputs.tag }}, built $CREATED (base image ghcr.io/ggml-org/llama.cpp:server-cuda@${{ steps.resolve.outputs.digest }})"
