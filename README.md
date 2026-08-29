@@ -14,7 +14,7 @@ Streaming responses are supported. The Docker image is built on the official `gh
 
 ## Quick start
 
-1. Deploy the template and pick a **Model**: a Hugging Face GGUF repo, optionally with a quantization tag, e.g. `unsloth/Qwen3.8-27B-GGUF:UD-Q4_K_XL`.
+1. Deploy the template and pick a **Model** (a Hugging Face GGUF repo, e.g. `unsloth/Qwen3.8-27B-GGUF`) and a **Quantization** (e.g. `UD-Q4_K_XL`, matching a GGUF file in the repo).
 2. Choose a GPU with enough VRAM for the GGUF file plus the KV cache (as a rule of thumb: GGUF file size + a few GB).
 3. Adjust **Context Size**, **Parallel Slots**, and the advanced options as needed — each field explains what it does.
 
@@ -26,7 +26,8 @@ The most important settings, all available in the template UI:
 
 | Setting | Meaning |
 |---|---|
-| Model | Hugging Face GGUF repo, `<owner>/<repo>[:quant]` |
+| Model | Hugging Face GGUF repo, `<owner>/<repo>` |
+| Quantization | Which GGUF quantization to download, e.g. `Q4_K_M` |
 | Context Size | Total context window in tokens, shared across parallel slots |
 | Parallel Slots | Requests served simultaneously per worker |
 | GPU Layers | Layers offloaded to the GPU (999 = all) |

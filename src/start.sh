@@ -41,6 +41,16 @@ if [ -n "$LLAMA_CACHED_MODEL" ]; then
     unset LLAMA_ARG_HF_REPO LLAMA_ARG_HF_FILE LLAMA_ARG_MODEL
 fi
 
+# The template asks for the model repo and the quantization as separate
+# fields (the console validates the repo name, which llama.cpp's repo:quant
+# syntax would break). Combine them here for llama-server, unless the repo
+# already carries a :quant tag or an explicit GGUF file is configured.
+if [ -n "$LLAMA_HF_QUANT" ] && [ -n "$LLAMA_ARG_HF_REPO" ] \
+    && [[ "$LLAMA_ARG_HF_REPO" != *:* ]] && [ -z "$LLAMA_ARG_HF_FILE" ]; then
+    export LLAMA_ARG_HF_REPO="${LLAMA_ARG_HF_REPO}:${LLAMA_HF_QUANT}"
+    echo "start.sh: Using model: $LLAMA_ARG_HF_REPO"
+fi
+
 # Require some model source to be configured.
 if [ -z "$CACHED_LLAMA_ARGS" ] && [ -z "$LLAMA_ARG_HF_REPO" ] && [ -z "$LLAMA_ARG_MODEL" ] \
     && [[ "$LLAMA_SERVER_CMD_ARGS" != *"-hf"* ]] && [[ "$LLAMA_SERVER_CMD_ARGS" != *"-m "* ]]; then

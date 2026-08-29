@@ -17,9 +17,19 @@
                 "input": {
                     "name": "Model (Hugging Face GGUF repo)",
                     "type": "huggingface",
-                    "description": "GGUF model to serve, as <owner>/<repo>[:quant], e.g. unsloth/Qwen3.8-27B-GGUF:UD-Q4_K_XL. The quant tag picks the GGUF file inside the repo; without it, Q4_K_M is used when available. The model is downloaded when a worker starts unless model caching is configured (see advanced options).",
-                    "default": "unsloth/Qwen3.8-27B-GGUF:UD-Q4_K_XL",
+                    "description": "GGUF model repository to serve, e.g. unsloth/Qwen3.8-27B-GGUF. Pick which quantization to use with the Quantization field below. The model is downloaded when a worker starts unless model caching is configured (see advanced options).",
+                    "default": "unsloth/Qwen3.8-27B-GGUF",
                     "required": true,
+                    "advanced": false
+                }
+            },
+            {
+                "key": "LLAMA_HF_QUANT",
+                "input": {
+                    "name": "Quantization",
+                    "type": "string",
+                    "description": "Quantization tag selecting the GGUF file inside the model repo, e.g. UD-Q4_K_XL or Q4_K_M (case-insensitive; must match a file in the repo). Leave empty for the repo's default (Q4_K_M when available). Ignored when 'GGUF File in Repo' is set.",
+                    "default": "UD-Q4_K_XL",
                     "advanced": false
                 }
             },
