@@ -38,10 +38,23 @@ jobs:
         if: steps.resolve.outputs.changed == 'true'
         id: version
         run: |
-          IMAGE="ghcr.io/ggml-org/llama.cpp:server-cuda@${{ steps.resolve.outputs.digest }}"
-          LABELS=$(skopeo inspect "docker://$IMAGE" --format '{{ index .Labels "org.opencontainers.image.version" }} {{ index .Labels "org.opencontainers.image.created" }}' 2>/dev/null || true)
-          VERSION=$(echo "$LABELS" | awk '{print $1}')
-          CREATED=$(echo "$LABELS" | awk '{print $2}')
+          # Read the OCI version/created labels from the image config via the
+          # registry API (no image pull needed).
+          REPO="ggml-org/llama.cpp"
+          ACCEPT="application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.docker.distribution.manifest.v2+json, application/vnd.oci.image.manifest.v1+json"
+          TOKEN=$(curl -sf "https://ghcr.io/token?scope=repository:${REPO}:pull" | jq -r .token)
+          MANIFEST=$(curl -sf -H "Authorization: Bearer $TOKEN" -H "Accept: $ACCEPT" "https://ghcr.io/v2/${REPO}/manifests/${{ steps.resolve.outputs.digest }}")
+          CHILD=$(echo "$MANIFEST" | jq -r '.manifests[]? | select(.platform.architecture=="amd64") | .digest' | head -n1)
+          if [ -n "$CHILD" ]; then
+            MANIFEST=$(curl -sf -H "Authorization: Bearer $TOKEN" -H "Accept: $ACCEPT" "https://ghcr.io/v2/${REPO}/manifests/${CHILD}")
+          fi
+          CONFIG_DIGEST=$(echo "$MANIFEST" | jq -r '.config.digest // empty')
+          LABELS="{}"
+          if [ -n "$CONFIG_DIGEST" ]; then
+            LABELS=$(curl -sfL -H "Authorization: Bearer $TOKEN" "https://ghcr.io/v2/${REPO}/blobs/${CONFIG_DIGEST}" | jq '.config.Labels // {}')
+          fi
+          VERSION=$(echo "$LABELS" | jq -r '."org.opencontainers.image.version" // empty')
+          CREATED=$(echo "$LABELS" | jq -r '."org.opencontainers.image.created" // empty')
           if echo "$VERSION" | grep -Eq '^b[0-9]+$'; then
             TAG="$VERSION"
           else
