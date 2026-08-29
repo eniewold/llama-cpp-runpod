@@ -2,34 +2,72 @@
     <img src="https://raw.githubusercontent.com/ggml-org/llama.cpp/master/media/llama1-icon-transparent.png" alt="llama.cpp logo" width="128">
 </p>
 
-# Serverless llama.cpp inference worker for RunPod
+# llama.cpp on RunPod Serverless
 
-This repository contains a serverless inference worker for running llama.cpp models on RunPod. It uses the `llama-server` image to provide an API for interacting with the models.
-The following OpenAI API endpoints are supported:
+Serve any GGUF model from Hugging Face as a serverless RunPod endpoint, powered by [llama.cpp](https://github.com/ggml-org/llama.cpp)'s `llama-server`. The worker exposes an OpenAI-compatible API:
 
-- `v1/models`
-- `v1/chat/completions`
-- `v1/completions`
+- `/v1/models`
+- `/v1/chat/completions`
+- `/v1/completions`
 
-Streaming responses is also supported.
+Streaming responses are supported. The Docker image is rebuilt daily on top of the official `ghcr.io/ggml-org/llama.cpp:server-cuda` image, so it stays current with llama.cpp.
 
-**Important!** This project is still relatively new. Please [open a new issue](https://github.com/Jacob-ML/inference-worker/issues/new) if you encounter any problems in order to get help.
+## Quick start
 
-**This is a fork of [SvenBrnn's `runpod-worker-ollama`](https://github.com/SvenBrnn/runpod-worker-ollama).**
+1. Deploy the template and pick a **Model**: a Hugging Face GGUF repo, optionally with a quantization tag, e.g. `unsloth/Qwen3.8-27B-GGUF:UD-Q4_K_XL`.
+2. Choose a GPU with enough VRAM for the GGUF file plus the KV cache (as a rule of thumb: GGUF file size + a few GB).
+3. Adjust **Context Size**, **Parallel Slots**, and the advanced options as needed — each field explains what it does.
 
-## Setup
-
-To get the best performance out of this worker, it is recommended to use cached models. Please see the [cached models documentation](./docs/cached.md) for more information, this is **highly recommended and will save many resources**.
+The model is downloaded when a worker cold-starts. For faster cold starts, use RunPod model caching (see below).
 
 ## Configuration
 
-The worker can be configured via environment variables set in the RunPod hub configuration:
+The most important settings, all available in the template UI:
 
-- `LLAMA_SERVER_CMD_ARGS`: Command line arguments (argv) for the `llama-server` binary. Example: `-hf /path/to/model.gguf:Q4_K_M --ctx-size 4096`. **IMPORTANT**: Please do not define the port argument here, as the worker will always use port `3098` automatically.
-- `MAX_CONCURRENCY`: Maximum number of concurrent requests the worker can handle. Default is `8`.
+| Setting | Meaning |
+|---|---|
+| Model | Hugging Face GGUF repo, `<owner>/<repo>[:quant]` |
+| Context Size | Total context window in tokens, shared across parallel slots |
+| Parallel Slots | Requests served simultaneously per worker |
+| GPU Layers | Layers offloaded to the GPU (999 = all) |
+| CPU MoE Layers | Keep expert weights of the first N layers on the CPU (MoE models) |
+| Flash Attention / KV Cache Types | Speed and VRAM trade-offs for the KV cache |
+| Extra llama-server Arguments | Any other `llama-server` flags, passed verbatim (never set `--port`) |
+
+Settings map directly to `llama-server` options via its native `LLAMA_ARG_*` environment variables, so anything not in the UI can be set as an additional environment variable or through the extra-arguments field.
+
+## Calling the endpoint
+
+Simple prompt or chat input:
+
+```json
+{ "input": { "prompt": "Hello, who are you?", "stream": false } }
+```
+
+```json
+{ "input": { "messages": [{ "role": "user", "content": "Hello!" }], "stream": true } }
+```
+
+Or call any supported OpenAI route directly:
+
+```json
+{
+    "input": {
+        "openai_route": "/v1/chat/completions",
+        "openai_input": {
+            "model": "any",
+            "messages": [{ "role": "user", "content": "Hello!" }]
+        }
+    }
+}
+```
+
+## Model caching
+
+To avoid re-downloading the model on every cold start, use RunPod's [model caching](https://docs.runpod.io/serverless/endpoints/model-caching): set your model repo in the endpoint's *Model* field and fill in the *Cached Model* and *Cached Model GGUF Path* advanced settings. See [docs/cached.md](./docs/cached.md) for a step-by-step guide.
 
 ## License
 
-Please see the [LICENSE](./LICENSE) file for more information.
+See the [LICENSE](./LICENSE) file.
 
-[![Runpod badge](https://api.runpod.io/badge/Jacob-ML/inference-worker)](https://console.runpod.io/hub/Jacob-ML/inference-worker)
+[![Runpod badge](https://api.runpod.io/badge/eniewold/llama-cpp-runpod)](https://console.runpod.io/hub/eniewold/llama-cpp-runpod)

@@ -13,8 +13,16 @@
         "gpuCount": 1,
         "env": [
             {
-                "key": "LLAMA_SERVER_CMD_ARGS",
-                "value": "-hf unsloth/gemma-3-270m-it-GGUF:IQ2_XXS --ctx-size 512 -ngl 999"
+                "key": "LLAMA_ARG_HF_REPO",
+                "value": "unsloth/gemma-3-270m-it-GGUF:Q6_K"
+            },
+            {
+                "key": "LLAMA_ARG_CTX_SIZE",
+                "value": "2048"
+            },
+            {
+                "key": "LLAMA_ARG_N_GPU_LAYERS",
+                "value": "999"
             }
         ],
         "allowedCudaVersions": [
