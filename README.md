@@ -70,4 +70,4 @@ To avoid re-downloading the model on every cold start, use RunPod's [model cachi
 
 See the [LICENSE](./LICENSE) file.
 
-[![Runpod badge](https://api.runpod.io/badge/eniewold/llama-cpp-runpod)](https://console.runpod.io/hub/eniewold/llama-cpp-runpod)
+[![Runpod](https://api.runpod.io/badge/eniewold/llama-cpp-runpod)](https://console.runpod.io/hub/listing/eniewold/llama-cpp-runpod)
