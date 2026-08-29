@@ -37,15 +37,23 @@ jobs:
         id: version
         run: |
           IMAGE="ghcr.io/ggml-org/llama.cpp:server-cuda@${{ steps.resolve.outputs.digest }}"
-          VERSION=$(skopeo inspect "docker://$IMAGE" --format '{{ index .Labels "org.opencontainers.image.version" }}' 2>/dev/null || true)
+          LABELS=$(skopeo inspect "docker://$IMAGE" --format '{{ index .Labels "org.opencontainers.image.version" }} {{ index .Labels "org.opencontainers.image.created" }}' 2>/dev/null || true)
+          VERSION=$(echo "$LABELS" | awk '{print $1}')
+          CREATED=$(echo "$LABELS" | awk '{print $2}')
           if echo "$VERSION" | grep -Eq '^b[0-9]+$'; then
             TAG="$VERSION"
           else
             echo "Could not read the version label, falling back to a dated tag."
             TAG="v$(date -u +%Y.%m.%d)"
           fi
-          echo "Release tag: $TAG"
+          if ! echo "$CREATED" | grep -Eq '^[0-9]{4}-'; then
+            CREATED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          fi
+          TITLE="$TAG (${CREATED%T*})"
+          echo "Release tag: $TAG, title: $TITLE, built: $CREATED"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "title=$TITLE" >> "$GITHUB_OUTPUT"
+          echo "created=$CREATED" >> "$GITHUB_OUTPUT"
 
       - name: Pin Dockerfile, commit and release
         if: steps.resolve.outputs.changed == 'true'
@@ -63,5 +71,5 @@ jobs:
           git add Dockerfile
           git commit -m "Pin llama.cpp base image to $TAG"
           git push origin HEAD:master
-          gh release create "$TAG" --title "$TAG" \
-            --notes "llama.cpp $TAG (base image ghcr.io/ggml-org/llama.cpp:server-cuda@${{ steps.resolve.outputs.digest }})"
+          gh release create "$TAG" --title "${{ steps.version.outputs.title }}" \
+            --notes "llama.cpp $TAG, built ${{ steps.version.outputs.created }} (base image ghcr.io/ggml-org/llama.cpp:server-cuda@${{ steps.resolve.outputs.digest }})"
