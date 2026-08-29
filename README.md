@@ -10,7 +10,7 @@ Serve any GGUF model from Hugging Face as a serverless RunPod endpoint, powered 
 - `/v1/chat/completions`
 - `/v1/completions`
 
-Streaming responses are supported. The Docker image is rebuilt daily on top of the official `ghcr.io/ggml-org/llama.cpp:server-cuda` image, so it stays current with llama.cpp. Because that base image tracks a recent CUDA toolkit, workers require hosts with CUDA 12.8 or newer — the template pins this automatically.
+Streaming responses are supported. The Docker image is built on the official `ghcr.io/ggml-org/llama.cpp:server-cuda` image and rebuilt automatically whenever llama.cpp publishes a new server image — each release of this template is named after the llama.cpp build it ships (e.g. `b10666`). Because the base image tracks a recent CUDA toolkit, workers require hosts with CUDA 12.8 or newer — the template pins this automatically.
 
 ## Quick start
 

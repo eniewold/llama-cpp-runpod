@@ -1,0 +1,67 @@
+# Tracks the floating ghcr.io/ggml-org/llama.cpp:server-cuda Docker tag.
+# When llama.cpp publishes a new server image, this workflow pins the
+# Dockerfile to its exact digest, names a release after the llama.cpp build
+# number it contains (e.g. b10666), and publishes it - which makes RunPod Hub
+# rebuild the template. Days without a new image produce no release.
+name: Track latest llama.cpp
+
+on:
+  schedule:
+    - cron: "30 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve latest server-cuda digest
+        id: resolve
+        run: |
+          DIGEST=$(docker buildx imagetools inspect ghcr.io/ggml-org/llama.cpp:server-cuda --format '{{.Manifest.Digest}}')
+          echo "Latest digest: $DIGEST"
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+          if grep -q "$DIGEST" Dockerfile; then
+            echo "Dockerfile already pinned to this digest, nothing to do."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Read llama.cpp build number from the image
+        if: steps.resolve.outputs.changed == 'true'
+        id: version
+        run: |
+          IMAGE="ghcr.io/ggml-org/llama.cpp:server-cuda@${{ steps.resolve.outputs.digest }}"
+          VERSION=$(docker run --rm --entrypoint /app/llama-server "$IMAGE" --version 2>&1 | sed -n 's/^version: \([0-9]*\).*/\1/p' | head -n1)
+          if [ -n "$VERSION" ]; then
+            TAG="b$VERSION"
+          else
+            echo "Could not read the build number, falling back to a dated tag."
+            TAG="v$(date -u +%Y.%m.%d)"
+          fi
+          echo "Release tag: $TAG"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Pin Dockerfile, commit and release
+        if: steps.resolve.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            echo "Release $TAG already exists, nothing to do."
+            exit 0
+          fi
+          sed -i -E "s|^FROM ghcr\.io/ggml-org/llama\.cpp:server-cuda.*$|FROM ghcr.io/ggml-org/llama.cpp:server-cuda@${{ steps.resolve.outputs.digest }}|" Dockerfile
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Dockerfile
+          git commit -m "Pin llama.cpp base image to $TAG"
+          git push origin HEAD:master
+          gh release create "$TAG" --title "$TAG" \
+            --notes "llama.cpp $TAG (base image ghcr.io/ggml-org/llama.cpp:server-cuda@${{ steps.resolve.outputs.digest }})"
