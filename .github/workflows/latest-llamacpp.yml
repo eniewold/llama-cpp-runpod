@@ -37,11 +37,11 @@ jobs:
         id: version
         run: |
           IMAGE="ghcr.io/ggml-org/llama.cpp:server-cuda@${{ steps.resolve.outputs.digest }}"
-          VERSION=$(docker run --rm --entrypoint /app/llama-server "$IMAGE" --version 2>&1 | sed -n 's/^version: \([0-9]*\).*/\1/p' | head -n1)
-          if [ -n "$VERSION" ]; then
-            TAG="b$VERSION"
+          VERSION=$(skopeo inspect "docker://$IMAGE" --format '{{ index .Labels "org.opencontainers.image.version" }}' 2>/dev/null || true)
+          if echo "$VERSION" | grep -Eq '^b[0-9]+$'; then
+            TAG="$VERSION"
           else
-            echo "Could not read the build number, falling back to a dated tag."
+            echo "Could not read the version label, falling back to a dated tag."
             TAG="v$(date -u +%Y.%m.%d)"
           fi
           echo "Release tag: $TAG"

@@ -28,8 +28,8 @@
                 "input": {
                     "name": "Context Size",
                     "type": "number",
-                    "description": "Total context window in tokens, shared across all parallel slots (each slot gets Context Size / Parallel Slots tokens). Larger values need more VRAM for the KV cache. 0 = the model's full trained context, which can be very large and may not fit.",
-                    "default": 8192,
+                    "description": "Total context window in tokens, shared across all parallel slots (each slot gets Context Size / Parallel Slots tokens). Larger values need more VRAM for the KV cache: if the worker runs out of memory, lower this, quantize the KV cache (advanced options), or pick a larger GPU. 0 = the model's full trained context.",
+                    "default": 131072,
                     "advanced": false
                 }
             },
