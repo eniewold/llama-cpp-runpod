@@ -1,7 +1,8 @@
 [
     {
         "slug": "qwen3.8-27b-q8_0",
-        "title": "Qwen3.8 27B Q8_0",
+        "vram_gb": 48,
+        "keywords": "Qwen 3.8 27B",
         "description": "Qwen3.8 27B at Q8_0 quality with 256k context, served as an OpenAI-compatible endpoint. Pre-configured for 48 GB GPUs - deploy and go.",
         "hf_repo": "unsloth/Qwen3.8-27B-GGUF",
         "quant": "Q8_0",

@@ -68,9 +68,28 @@ for chunk in response:
 """
 
 
+def derive_names(entry):
+    """Build the listing title and a short display name.
+
+    Title convention (searchable, mirrors the hand-made public templates):
+    "<Model>-<Quant> (<VRAM>GB VRAM, <ctx>k context, OpenAI API, llama.cpp) <keywords>"
+    An explicit "title" in the catalog entry overrides the convention.
+    """
+    base = entry["hf_repo"].split("/")[-1]
+    if base.endswith("-GGUF"):
+        base = base[: -len("-GGUF")]
+    ctx_label = f'{entry["env"]["LLAMA_ARG_CTX_SIZE"] // 1024}k'
+    title = entry.get("title") or (
+        f'{base}-{entry["quant"]} ({entry["vram_gb"]}GB VRAM, {ctx_label} context, '
+        f'OpenAI API, llama.cpp) {entry["keywords"]}'
+    )
+    return title, f'{base} {entry["quant"]}'
+
+
 def render_readme(entry):
     ctx = entry["env"]["LLAMA_ARG_CTX_SIZE"]
-    return f"""# {entry["title"]} on RunPod Serverless
+    _, short_name = derive_names(entry)
+    return f"""# {short_name} on RunPod Serverless
 
 {entry["readme_intro"]}
 
@@ -115,7 +134,7 @@ def main():
     meta = {}
     for entry in catalog:
         hub = copy.deepcopy(base_hub)
-        hub["title"] = entry["title"]
+        hub["title"], _ = derive_names(entry)
         hub["description"] = entry["description"]
         hub["config"]["gpuIds"] = entry["gpuIds"]
         hub["config"]["containerDiskInGb"] = entry["containerDiskInGb"]
