@@ -42,20 +42,47 @@ TESTS = {
 }
 
 
+SDK_SNIPPET = """## Using it with an OpenAI SDK
+
+After deploying, point any OpenAI client at your endpoint URL, with your
+RunPod API key in place of the OpenAI key:
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://api.runpod.ai/v2/<ENDPOINT_ID>/openai/v1",
+    api_key="<YOUR_RUNPOD_API_KEY>",
+)
+
+response = client.chat.completions.create(
+    model="%MODEL%",
+    messages=[{"role": "user", "content": "Hello!"}],
+    stream=True,
+)
+for chunk in response:
+    print(chunk.choices[0].delta.content or "", end="")
+```
+
+`<ENDPOINT_ID>` is shown on your endpoint's page in the RunPod console.
+"""
+
+
 def render_readme(entry):
     ctx = entry["env"]["LLAMA_ARG_CTX_SIZE"]
     return f"""# {entry["title"]} on RunPod Serverless
 
 {entry["readme_intro"]}
 
-Powered by [llama.cpp](https://github.com/ggml-org/llama.cpp). The endpoint is OpenAI-compatible:
+**Drop-in OpenAI API**: the endpoint speaks the OpenAI API directly - point any OpenAI SDK or tool at your endpoint URL and it just works, streaming included. See the snippet below.
+
+Powered by [llama.cpp](https://github.com/ggml-org/llama.cpp). Supported routes:
 
 - `/v1/models`
 - `/v1/chat/completions`
 - `/v1/completions`
 
-Streaming responses are supported.
-
+{SDK_SNIPPET.replace("%MODEL%", entry["hf_repo"] + ":" + entry["quant"])}
 ## Configuration
 
 | Setting | Value |
@@ -66,13 +93,13 @@ Streaming responses are supported.
 
 Everything is pre-configured, but every setting stays adjustable at deploy time - model, quantization, context size, KV cache types, and more. The model is downloaded when a worker cold-starts.
 
-## Calling the endpoint
+## RunPod queue API
+
+The endpoint also accepts RunPod's job format (`POST /v2/<ENDPOINT_ID>/run`):
 
 ```json
 {{ "input": {{ "messages": [{{ "role": "user", "content": "Hello!" }}], "stream": false }} }}
 ```
-
-Or use RunPod's OpenAI-compatible URL for this endpoint (`.../openai/v1/chat/completions`) with any OpenAI client.
 
 This listing is generated from [eniewold/llama-cpp-runpod](https://github.com/eniewold/llama-cpp-runpod), which also offers a fully configurable any-model template.
 

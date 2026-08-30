@@ -39,7 +39,18 @@ Settings map directly to `llama-server` options via its native `LLAMA_ARG_*` env
 
 ## Calling the endpoint
 
-Simple prompt or chat input:
+**Drop-in OpenAI API**: point any OpenAI SDK at your endpoint, with your RunPod API key in place of the OpenAI key — streaming included:
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://api.runpod.ai/v2/<ENDPOINT_ID>/openai/v1",
+    api_key="<YOUR_RUNPOD_API_KEY>",
+)
+```
+
+Or use RunPod's queue API (`POST /v2/<ENDPOINT_ID>/run`) with simple prompt or chat input:
 
 ```json
 { "input": { "prompt": "Hello, who are you?", "stream": false } }
