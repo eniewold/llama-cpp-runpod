@@ -12,6 +12,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   release:
@@ -94,3 +95,6 @@ jobs:
           CREATED="${{ steps.version.outputs.created }}"
           gh release create "$TAG" --title "$TAG (${CREATED%T*})" \
             --notes "llama.cpp ${{ steps.version.outputs.tag }}, built $CREATED (base image ghcr.io/ggml-org/llama.cpp:server-cuda@${{ steps.resolve.outputs.digest }})"
+          # Releases made with GITHUB_TOKEN don't emit release events, so
+          # fan out to the catalog listings explicitly.
+          gh workflow run sync-catalog.yml -f release_tag="$TAG"

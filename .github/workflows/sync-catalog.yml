@@ -1,0 +1,104 @@
+# Renders the per-model listing repos from catalog/models.json and syncs them
+# into the runpod-serverless-templates GitHub org: creates missing repos,
+# pushes regenerated content, and publishes a release (RunPod Hub only reacts
+# to new releases). Runs after each source release (triggered by
+# latest-llamacpp.yml) or manually.
+name: Sync catalog
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag to publish in the model repos (defaults to the source repo's latest release)"
+        required: false
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  ORG: runpod-serverless-templates
+  IMAGE: ghcr.io/eniewold/llama-cpp-runpod
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Wait for the worker image build of this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          SHA=$(git rev-parse HEAD)
+          for i in $(seq 1 30); do
+            STATUS=$(gh run list --workflow build-image.yml --commit "$SHA" --json status --jq '.[0].status' 2>/dev/null || echo "")
+            if [ -z "$STATUS" ] || [ "$STATUS" = "completed" ]; then
+              break
+            fi
+            echo "Image build for $SHA is $STATUS, waiting..."
+            sleep 20
+          done
+
+      - name: Generate listing repos
+        run: |
+          DIGEST=$(docker buildx imagetools inspect "$IMAGE:latest" --format '{{.Manifest.Digest}}')
+          echo "Using worker image digest: $DIGEST"
+          python3 catalog/generate.py "$IMAGE@$DIGEST" out
+
+      - name: Sync repos and publish releases
+        env:
+          GH_TOKEN: ${{ secrets.ORG_SYNC_TOKEN }}
+        run: |
+          set -euo pipefail
+          RELEASE_TAG="${{ github.event.release.tag_name || github.event.inputs.release_tag }}"
+          if [ -z "$RELEASE_TAG" ]; then
+            RELEASE_TAG=$(gh release view --repo "${{ github.repository }}" --json tagName --jq .tagName)
+          fi
+          echo "Source release: $RELEASE_TAG"
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          for dir in out/*/; do
+            slug=$(basename "$dir")
+            echo "=== $slug"
+            desc=$(jq -r --arg s "$slug" '.[$s]' out/meta.json)
+
+            if ! gh api "repos/$ORG/$slug" --silent 2>/dev/null; then
+              echo "Creating repo $ORG/$slug"
+              gh api "orgs/$ORG/repos" -f name="$slug" -f description="$desc" -F private=false --silent
+            fi
+
+            git clone "https://x-access-token:${GH_TOKEN}@github.com/$ORG/$slug.git" "work/$slug"
+            rsync -a --delete --exclude .git "$dir" "work/$slug/"
+            pushd "work/$slug" > /dev/null
+            git add -A
+            if git diff --cached --quiet; then
+              echo "No content changes for $slug"
+              CHANGED=0
+            else
+              git commit -m "Sync from eniewold/llama-cpp-runpod $RELEASE_TAG"
+              git push origin HEAD:main
+              CHANGED=1
+            fi
+            popd > /dev/null
+
+            # Publish a release so RunPod Hub picks up the new content. Skip
+            # only if nothing changed AND this exact tag already exists.
+            TAG="$RELEASE_TAG"
+            if gh release view "$TAG" --repo "$ORG/$slug" > /dev/null 2>&1; then
+              if [ "$CHANGED" = "0" ]; then
+                echo "Release $TAG already exists and content is unchanged, skipping."
+                continue
+              fi
+              N=2
+              while gh release view "$TAG" --repo "$ORG/$slug" > /dev/null 2>&1; do
+                TAG="${RELEASE_TAG}-${N}"
+                N=$((N+1))
+              done
+            fi
+            gh release create "$TAG" --repo "$ORG/$slug" --title "$TAG" \
+              --notes "Generated from eniewold/llama-cpp-runpod release $RELEASE_TAG."
+          done

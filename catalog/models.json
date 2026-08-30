@@ -1,0 +1,22 @@
+[
+    {
+        "slug": "qwen3.8-27b-q8_0",
+        "title": "Qwen3.8 27B Q8_0",
+        "description": "Qwen3.8 27B at Q8_0 quality with 256k context, served as an OpenAI-compatible endpoint. Pre-configured for 48 GB GPUs - deploy and go.",
+        "hf_repo": "unsloth/Qwen3.8-27B-GGUF",
+        "quant": "Q8_0",
+        "weights_gb": 27.1,
+        "gpuIds": "AMPERE_48,ADA_48_PRO,AMPERE_80,ADA_80_PRO",
+        "containerDiskInGb": 45,
+        "env": {
+            "LLAMA_ARG_CTX_SIZE": 262144,
+            "LLAMA_ARG_N_PARALLEL": 1,
+            "LLAMA_ARG_N_GPU_LAYERS": 999,
+            "LLAMA_ARG_FLASH_ATTN": "on",
+            "LLAMA_ARG_CACHE_TYPE_K": "q8_0",
+            "LLAMA_ARG_CACHE_TYPE_V": "q8_0",
+            "MAX_CONCURRENCY": 1
+        },
+        "readme_intro": "Qwen3.8 27B in Q8_0 quantization (near-lossless quality) with the full 256k-token context window, quantized KV cache, and Flash Attention. Sized for a single 48 GB GPU. Each worker serves one request at a time; RunPod scales workers out under load."
+    }
+]
