@@ -89,7 +89,9 @@ def derive_names(entry):
 def render_readme(entry):
     ctx = entry["env"]["LLAMA_ARG_CTX_SIZE"]
     _, short_name = derive_names(entry)
-    return f"""# {short_name} on RunPod Serverless
+    return f"""[![Runpod](https://api.runpod.io/badge/runpod-serverless-templates/{entry["slug"]})](https://console.runpod.io/hub/listing/runpod-serverless-templates/{entry["slug"]})
+
+# {short_name} on RunPod Serverless
 
 {entry["readme_intro"]}
 
@@ -121,8 +123,6 @@ The endpoint also accepts RunPod's job format (`POST /v2/<ENDPOINT_ID>/run`):
 ```
 
 This listing is generated from [eniewold/llama-cpp-runpod](https://github.com/eniewold/llama-cpp-runpod), which also offers a fully configurable any-model template.
-
-[![Runpod](https://api.runpod.io/badge/runpod-serverless-templates/{entry["slug"]})](https://console.runpod.io/hub/listing/runpod-serverless-templates/{entry["slug"]})
 """
 
 

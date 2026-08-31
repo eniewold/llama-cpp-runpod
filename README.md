@@ -1,3 +1,5 @@
+[![Runpod](https://api.runpod.io/badge/eniewold/llama-cpp-runpod)](https://console.runpod.io/hub/listing/eniewold/llama-cpp-runpod)
+
 <p align="center">
     <img src="https://raw.githubusercontent.com/ggml-org/llama.cpp/master/media/llama1-icon-transparent.png" alt="llama.cpp logo" width="128">
 </p>
@@ -81,5 +83,3 @@ To avoid re-downloading the model on every cold start, use RunPod's [model cachi
 ## License
 
 See the [LICENSE](./LICENSE) file.
-
-[![Runpod](https://api.runpod.io/badge/eniewold/llama-cpp-runpod)](https://console.runpod.io/hub/listing/eniewold/llama-cpp-runpod)
