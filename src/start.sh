@@ -14,6 +14,17 @@ set -e -o pipefail
 
 PORT=3098
 
+# Fatal configuration errors would exit within milliseconds, which is faster
+# than RunPod's log capture for serverless workers - the container log then
+# shows up empty and the worker just crash-loops. Hold the container open
+# briefly so the reason is always visible in the worker's container log.
+fail() {
+    echo "start.sh: ERROR: $1"
+    echo "start.sh: Exiting in 20 seconds (kept alive so this message reaches the worker log)..."
+    sleep 20
+    exit 1
+}
+
 cleanup() {
     echo "start.sh: Cleaning up..."
     pkill -P $$ # kill all child processes of the current script
@@ -26,8 +37,7 @@ find_cached_path() {
     local model_path
     model_path=$(python ./find_cached.py "$LLAMA_CACHED_MODEL" "$LLAMA_CACHED_GGUF_PATH")
     if [ $? -ne 0 ] || [ -z "$model_path" ]; then
-        echo "start.sh: Error: Could not resolve cached model path. Check that LLAMA_CACHED_MODEL and LLAMA_CACHED_GGUF_PATH are correct and the model is fully cached."
-        exit 1
+        fail "Could not resolve cached model path. Check that LLAMA_CACHED_MODEL and LLAMA_CACHED_GGUF_PATH are correct and the model is fully cached."
     fi
     CACHED_LLAMA_ARGS="-m $model_path"
 }
@@ -39,6 +49,14 @@ if [ -n "$LLAMA_CACHED_MODEL" ]; then
     find_cached_path
     echo "start.sh: Using cached model: $CACHED_LLAMA_ARGS"
     unset LLAMA_ARG_HF_REPO LLAMA_ARG_HF_FILE LLAMA_ARG_MODEL
+fi
+
+# A .gguf filename pasted into the Quantization field is a common mistake -
+# treat it as the GGUF file selector instead of failing on a bogus tag.
+if [[ "$LLAMA_HF_QUANT" == *.gguf ]]; then
+    echo "start.sh: LLAMA_HF_QUANT looks like a filename; using it as LLAMA_ARG_HF_FILE instead."
+    export LLAMA_ARG_HF_FILE="${LLAMA_ARG_HF_FILE:-$LLAMA_HF_QUANT}"
+    LLAMA_HF_QUANT=""
 fi
 
 # The template asks for the model repo and the quantization as separate
@@ -54,14 +72,12 @@ fi
 # Require some model source to be configured.
 if [ -z "$CACHED_LLAMA_ARGS" ] && [ -z "$LLAMA_ARG_HF_REPO" ] && [ -z "$LLAMA_ARG_MODEL" ] \
     && [[ "$LLAMA_SERVER_CMD_ARGS" != *"-hf"* ]] && [[ "$LLAMA_SERVER_CMD_ARGS" != *"-m "* ]]; then
-    echo "start.sh: Error: No model configured. Set LLAMA_ARG_HF_REPO (the Model field in the template), or configure model caching with LLAMA_CACHED_MODEL and LLAMA_CACHED_GGUF_PATH."
-    exit 1
+    fail "No model configured. Set LLAMA_ARG_HF_REPO (the Model field in the template), or configure model caching with LLAMA_CACHED_MODEL and LLAMA_CACHED_GGUF_PATH."
 fi
 
 # The worker requires llama-server to listen on port $PORT.
 if [[ "$LLAMA_SERVER_CMD_ARGS" == *"--port"* ]]; then
-    echo "start.sh: Error: You must not define --port in LLAMA_SERVER_CMD_ARGS, as port $PORT is required."
-    exit 1
+    fail "You must not define --port in LLAMA_SERVER_CMD_ARGS, as port $PORT is required."
 fi
 
 # trap exit signals and call the cleanup function
@@ -91,9 +107,9 @@ echo "start.sh: Waiting for llama-server to become healthy (downloading/loading 
 # its own worker timeouts.
 until curl -sf "http://127.0.0.1:${PORT}/health" > /dev/null 2>&1; do
     if ! kill -0 "$LLAMA_SERVER_PID" 2>/dev/null; then
-        echo "start.sh: Error: llama-server exited unexpectedly. Last log lines:"
+        echo "start.sh: llama-server exited unexpectedly. Last log lines:"
         tail -n 40 llama.server.log
-        exit 1
+        fail "llama-server exited during startup (see log lines above for the reason)."
     fi
     sleep 1
 done
