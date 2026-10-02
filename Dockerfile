@@ -1,7 +1,7 @@
 # Official llama.cpp server image. The digest pin is managed automatically by
 # .github/workflows/latest-llamacpp.yml, which follows the floating
 # server-cuda tag and cuts a release named after the llama.cpp build number.
-FROM ghcr.io/ggml-org/llama.cpp:server-cuda@sha256:6cdf9529493b9581c421fec5628dcd4b8dd7c09507fc7d27ad739cc9205d66f5
+FROM ghcr.io/ggml-org/llama.cpp:server-cuda@sha256:d87b02aafa74797a2d599b281c50468704bd0bcdc57bfcf31b570d593f1d285b
 
 ENV PYTHONUNBUFFERED=1
 
